@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>沙巴4天3夜经济之旅 | 交互式行程规划</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Earthy Calm -->
+    <!-- Application Structure Plan: A single-page dashboard design with a sticky navigation bar for quick access to key thematic sections: Budget, Itinerary, Logistics, and Recommendations. This structure was chosen to transform the linear report into a non-linear, task-oriented tool. Users can immediately grasp the critical budget challenge via an interactive chart, then dive into the tabbed itinerary or filterable recommendations as needed. This prioritizes user discovery and quick information retrieval over the original report's narrative flow. -->
+    <!-- Visualization & Content Choices: 
+        - Budget Breakdown: Report Info -> Detailed cost table. Goal -> Inform & Compare. Viz -> Chart.js Donut Chart. Interaction -> Hover for details. Justification -> Visually impactful way to show cost proportions and the budget overrun.
+        - Itinerary: Report Info -> Day-by-day text. Goal -> Organize. Viz -> Tabbed, timeline-style HTML/CSS layout. Interaction -> Click tabs to switch days. Justification -> Prevents a long wall of text, making daily plans easy to digest.
+        - Recommendations: Report Info -> Lists of food/sights. Goal -> Organize & Inform. Viz -> Card-based grid. Interaction -> JS-powered buttons to filter by category. Justification -> Allows users to quickly find specific types of information.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #FDFBF8;
+            color: #4B423B;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+        }
+        .nav-link:hover {
+            color: #D97706; 
+        }
+        .active-tab {
+            border-color: #D97706 !important;
+            color: #D97706 !important;
+            font-weight: 700;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 1.25rem;
+            top: 1.25rem;
+            bottom: -1.25rem;
+            width: 2px;
+            background-color: #E5E7EB;
+            transform: translateX(-50%);
+        }
+        .timeline-item:last-child::before {
+            display: none;
+        }
+        .timeline-icon {
+            z-index: 10;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #D97706;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-3">
+            <div class="flex justify-between items-center">
+                <div class="text-xl font-bold text-amber-600">沙巴经济之旅</div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#budget" class="nav-link text-gray-600 border-b-2 border-transparent">预算概览</a>
+                    <a href="#itinerary" class="nav-link text-gray-600 border-b-2 border-transparent">行程安排</a>
+                    <a href="#logistics" class="nav-link text-gray-600 border-b-2 border-transparent">交通住宿</a>
+                    <a href="#recommendations" class="nav-link text-gray-600 border-b-2 border-transparent">美食景点</a>
+                    <a href="#tips" class="nav-link text-gray-600 border-b-2 border-transparent">贴士与风险</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 md:py-12">
+        
+        <section class="text-center mb-12">
+            <h1 class="text-3xl md:text-5xl font-bold text-stone-800 mb-2">沙巴亚庇与昆达山</h1>
+            <p class="text-lg md:text-xl text-stone-600">4天3夜 · 6人团队 · 高性价比探索之旅</p>
+        </section>
+
+        <section id="budget" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 text-stone-800">预算概览：RM800的极限挑战</h2>
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-6">
+                    <p class="text-stone-600">此行程的核心挑战在于严格的预算控制。我们的分析显示，在12月旅游旺季，要将人均开销控制在RM800内极具挑战性。下方图表展示了基于“极致性价比”策略的预估开销分布，请注意潜在的超支风险。</p>
+                </div>
+                <div class="grid md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <div class="chart-container">
+                            <canvas id="budgetChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                         <div class="flex justify-between items-center bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                            <div>
+                                <p class="font-bold text-red-800">超支预警</p>
+                                <p class="text-sm text-red-700">预估总额已超出目标预算</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-red-600">RM 1,317</p>
+                                <p class="text-sm text-gray-500 line-through">目标: RM 800</p>
+                            </div>
+                        </div>
+                        <div id="budgetDetails" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="itinerary" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 text-stone-800">详细行程规划</h2>
+             <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-6">
+                    <p class="text-stone-600">这是一个快节奏的行程，旨在最大限度地利用您的时间。点击下方的日期标签，查看每日的详细活动安排、交通和餐饮建议。</p>
+                </div>
+                <div class="border-b border-gray-200 mb-6">
+                    <nav class="-mb-px flex space-x-6" id="itineraryTabs">
+                        <button data-day="day1" class="itinerary-tab py-4 px-1 border-b-2 font-medium text-lg active-tab" style="border-color: #D97706;">第 1 天</button>
+                        <button data-day="day2" class="itinerary-tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-lg">第 2 天</button>
+                        <button data-day="day3" class="itinerary-tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-lg">第 3 天</button>
+                        <button data-day="day4" class="itinerary-tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-lg">第 4 天</button>
+                    </nav>
+                </div>
+                <div id="itineraryContent"></div>
+            </div>
+        </section>
+
+        <section id="logistics" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 text-stone-800">交通与住宿方案</h2>
+            <div class="text-center mb-8">
+                <p class="text-stone-600 max-w-3xl mx-auto">合理的交通与住宿选择是控制成本的关键。我们建议团队租用MPV并合租民宿，以实现成本和灵活性的最佳平衡。</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="font-bold text-xl mb-4 text-amber-700">✈️ 交通策略</h3>
+                    <p class="font-semibold mb-2">航班：立即预订！</p>
+                    <p class="mb-4 text-stone-600">12月是旺季，机票价格只会持续上涨。请立即通过亚航(AirAsia)等低成本航空公司预订吉隆坡(KUL)至亚庇(BKI)以及亚庇(BKI)至诗巫(SBW)的机票。</p>
+                    <p class="font-semibold mb-2">地面交通：租用MPV</p>
+                    <p class="text-stone-600">对于6人团队，租用Perodua Alza或类似MPV是最高效、经济的选择。4天总租金约RM920，人均仅RM153，远低于参加旅行团。推荐租车公司：KK Rent A Car, Agtran。</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="font-bold text-xl mb-4 text-amber-700">🏨 住宿策略</h3>
+                    <p class="font-semibold mb-2">昆达山 (2晚): 度假屋</p>
+                    <p class="mb-4 text-stone-600">推荐租用整栋民宿，如 `Kimin's Kinabalu Retreat`。人均每晚约RM125，提供宽敞空间和厨房设施，可自行烹饪以节省开支。</p>
+                    <p class="font-semibold mb-2">亚庇 (1晚): 市区公寓</p>
+                    <p class="text-stone-600">推荐 `The Borneo Suite` 等家庭式公寓，专为团队设计，人均每晚低至RM54，交通便利，性价比极高。</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="recommendations" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 text-stone-800">美食与景点推荐</h2>
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-6">
+                    <p class="text-stone-600">我们精选了最具性价比的本地美食和景点，助您在体验地道风情的同时，将开销降至最低。使用下方的按钮进行筛选。</p>
+                </div>
+                <div class="flex justify-center space-x-4 mb-8" id="filter-buttons">
+                    <button data-filter="all" class="filter-btn bg-amber-600 text-white px-4 py-2 rounded-full">全部</button>
+                    <button data-filter="food" class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full">美食</button>
+                    <button data-filter="sight" class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full">景点</button>
+                </div>
+                <div id="recommendations-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </div>
+        </section>
+
+        <section id="tips" class="scroll-mt-20">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 text-stone-800">省钱贴士与风险管理</h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                 <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <h3 class="font-bold text-xl mb-4 text-green-700">💡 省钱小贴士</h3>
+                    <ul class="list-disc list-inside space-y-2 text-stone-600">
+                        <li><b>即时行动:</b> 旺季机酒价格只升不降，越早预订越省钱。</li>
+                        <li><b>现金为王:</b> 许多本地茶室只收现金，请备足马币。</li>
+                        <li><b>团队优势:</b> 拼单租车和住宿，大幅降低人均成本。</li>
+                        <li><b>善用厨房:</b> 入住带厨房的民宿，自己动手准备晚餐或早餐。</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500">
+                    <h3 class="font-bold text-xl mb-4 text-red-700">⚠️ 风险提示</h3>
+                    <ul class="list-disc list-inside space-y-2 text-stone-600">
+                        <li><b>预算超支:</b> RM800预算极为紧张，请为潜在的机票涨价准备备用金。</li>
+                        <li><b>旺季拥堵:</b> 热门景点和餐厅可能需要排队，请合理安排时间。</li>
+                        <li><b>天气因素:</b> 12月是雨季，昆达山可能多雨多雾，影响神山观景。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-stone-800 text-white mt-16">
+        <div class="container mx-auto px-6 py-4 text-center text-sm">
+            <p>交互式行程规划 | 祝您旅途愉快！</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            const budgetData = {
+                labels: ['机票', '住宿', '地面交通', '餐饮', '景点门票'],
+                costs: [500, 304, 163, 300, 50],
+                colors: ['#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6'],
+                icons: ['✈️', '🏨', '🚗', '🍽️', '🏞️']
+            };
+
+            const itineraryData = {
+                day1: {
+                    title: '抵达亚庇 & 城市初探',
+                    items: [
+                        { time: '上午', icon: '✈️', text: '从吉隆坡(KUL)飞往亚庇(BKI)，抵达后在机场取车。' },
+                        { time: '下午', icon: '🍽️', text: '在【怡丰茶室】享用午餐，品尝叻沙和牛杂面。' },
+                        { time: '下午', icon: '🕌', text: '参观【亚庇市立清真寺】(水上清真寺)，门票RM5。' },
+                        { time: '傍晚', icon: '🌅', text: '前往【丹绒亚路海滩】欣赏世界级日落。' },
+                        { time: '晚上', icon: '🦐', text: '晚餐可选【大茄来海鲜】或更经济的【丹绒亚路夜市】。' },
+                        { time: '晚上', icon: '🏨', text: '入住亚庇市区预订的家庭式公寓。' }
+                    ]
+                },
+                day2: {
+                    title: '神山之路 & 昆达山风光',
+                    items: [
+                        { time: '上午', icon: '🚗', text: '早餐后驱车约2小时前往昆达山。' },
+                        { time: '上午', icon: '🏞️', text: '游览【神山公园】，务必早到以观赏主峰。门票RM10。' },
+                        { time: '中午', icon: '🍽️', text: '在昆达山当地餐厅享用午餐。' },
+                        { time: '下午', icon: '🎖️', text: '参观【昆达山战争纪念园】，门票RM4。' },
+                        { time: '下午', icon: '🐄', text: '前往【迪萨奶牛牧场】，与奶牛互动并拍照。门票RM5。' },
+                        { time: '晚上', icon: '🏡', text: '入住昆达山民宿，可自行烧烤或火锅。' }
+                    ]
+                },
+                day3: {
+                    title: '晨雾观景 & 返回亚庇',
+                    items: [
+                        { time: '上午', icon: '🌄', text: '早起欣赏神山晨景，随后办理退房。' },
+                        { time: '中午', icon: '🚗', text: '驾车返回亚庇市区。' },
+                        { time: '中午', icon: '🍽️', text: '午餐品尝【新记肉骨茶】。' },
+                        { time: '下午', icon: '🏛️', text: '可选参观【沙巴州博物馆】，了解本地历史文化。门票RM15。' },
+                        { time: '晚上', icon: '🍜', text: '晚餐在平价的【富源茶室】享用。' },
+                        { time: '晚上', icon: '🏨', text: '入住亚庇市区民宿。' }
+                    ]
+                },
+                day4: {
+                    title: '告别 & 回程',
+                    items: [
+                        { time: '上午', icon: '🛍️', text: '根据航班时间，在市区购买特色手信。' },
+                        { time: '中午/下午', icon: '🚗', text: '前往机场还车。' },
+                        { time: '下午', icon: '✈️', text: '办理登机手续，搭乘航班返回诗巫(SBW)。' }
+                    ]
+                }
+            };
+
+            const recommendationsData = [
+                { name: '怡丰茶室', category: 'food', desc: '海鲜叻沙和牛杂汤面闻名，价格亲民，可能只收现金。', price: '人均 RM20-30' },
+                { name: '新记肉骨茶', category: 'food', desc: '用料实在，汤头浓郁，深受本地人喜爱。', price: '人均 RM25-40' },
+                { name: '富源茶室', category: 'food', desc: '自助式中式料理，拉茶套餐美味，性价比高。', price: '人均 RM15-25' },
+                { name: '丹绒亚路夜市', category: 'food', desc: '体验沙爹、烤鸡翅等马来风味小吃，经济实惠。', price: '人均 RM15-30' },
+                { name: '神山公园', category: 'sight', desc: '世界自然遗产，观赏神山主峰的最佳地点。', price: '门票 RM10' },
+                { name: '迪萨奶牛牧场', category: 'sight', desc: '被称为“小新西兰”，以神山为背景的牧场风光。', price: '门票 RM5' },
+                { name: '市立清真寺', category: 'sight', desc: '著名的水上清真寺，建筑宏伟壮观。', price: '门票 RM5' },
+                { name: '昆达山战争纪念园', category: 'sight', desc: '纪念二战历史的宁静花园。', price: '门票 RM4' },
+                { name: '丹绒亚路海滩', category: 'sight', desc: '欣赏世界三大最美日落之一的绝佳地点。', price: '免费' }
+            ];
+
+            const budgetCtx = document.getElementById('budgetChart').getContext('2d');
+            new Chart(budgetCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: budgetData.labels,
+                    datasets: [{
+                        data: budgetData.costs,
+                        backgroundColor: budgetData.colors,
+                        borderColor: '#FDFBF8',
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 14,
+                                    family: "'Noto Sans SC', sans-serif"
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += 'RM ' + context.parsed.toFixed(2);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+
+            const budgetDetailsContainer = document.getElementById('budgetDetails');
+            budgetData.labels.forEach((label, index) => {
+                const detailHtml = `
+                    <div class="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-xl mr-3">${budgetData.icons[index]}</span>
+                            <span class="text-stone-700">${label}</span>
+                        </div>
+                        <span class="font-bold text-stone-800">RM ${budgetData.costs[index].toFixed(2)}</span>
+                    </div>
+                `;
+                budgetDetailsContainer.innerHTML += detailHtml;
+            });
+
+            const itineraryContent = document.getElementById('itineraryContent');
+            const itineraryTabs = document.getElementById('itineraryTabs');
+            
+            function renderItinerary(day) {
+                const data = itineraryData[day];
+                let contentHtml = `<h3 class="text-xl font-bold mb-6 text-amber-700">${data.title}</h3><div class="relative">`;
+                data.items.forEach(item => {
+                    contentHtml += `
+                        <div class="timeline-item relative flex items-start mb-8 pl-12">
+                            <div class="timeline-icon absolute left-0 top-0 flex items-center justify-center w-10 h-10 bg-gray-200 rounded-full">
+                                <span class="text-xl">${item.icon}</span>
+                            </div>
+                            <div class="ml-4">
+                                <p class="font-semibold text-stone-800">${item.time}</p>
+                                <p class="text-stone-600">${item.text}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                if (day === 'day3') {
+                    contentHtml += `
+                        <div class="flex justify-center mt-8">
+                            <button id="geminiButton" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-transform transform hover:scale-105">
+                                ✨ 为我们的最后一晚生成一个特别晚餐计划
+                            </button>
+                        </div>
+                        <div id="geminiContent" class="mt-8 p-6 bg-amber-50 rounded-xl shadow-inner hidden">
+                            <div id="geminiLoading" class="flex items-center justify-center space-x-2">
+                                <div class="spinner"></div>
+                                <span class="text-amber-800">正在生成中... 请稍候</span>
+                            </div>
+                            <div id="geminiResult" class="text-stone-800 space-y-4"></div>
+                        </div>
+                    `;
+                }
+                
+                contentHtml += `</div>`;
+                itineraryContent.innerHTML = contentHtml;
+                
+                if (day === 'day3') {
+                    document.getElementById('geminiButton').addEventListener('click', generateSpecialPlan);
+                }
+            }
+
+            itineraryTabs.addEventListener('click', (e) => {
+                if (e.target.classList.contains('itinerary-tab')) {
+                    itineraryTabs.querySelector('.active-tab').classList.remove('active-tab');
+                    e.target.classList.add('active-tab');
+                    renderItinerary(e.target.dataset.day);
+                }
+            });
+
+            async function generateSpecialPlan() {
+                const geminiButton = document.getElementById('geminiButton');
+                const geminiContent = document.getElementById('geminiContent');
+                const geminiLoading = document.getElementById('geminiLoading');
+                const geminiResult = document.getElementById('geminiResult');
+
+                geminiContent.classList.remove('hidden');
+                geminiLoading.classList.remove('hidden');
+                geminiResult.classList.add('hidden');
+                geminiResult.innerHTML = '';
+                geminiButton.disabled = true;
+                geminiButton.textContent = '生成中...';
+                
+                const userPrompt = '我正在为6人团队规划一个去沙巴亚庇（Kota Kinabalu）的旅行。我们最后一晚想有一个特别的晚餐体验，预算相对经济实惠。请为我们推荐一个特别的晚餐或活动计划，并提供简短的理由。请用中文回答，不要超过300字。';
+                
+                const payload = {
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    generationConfig: {
+                        responseMimeType: "text/plain"
+                    }
+                };
+                
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                try {
+                    let response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates[0].content.parts[0].text;
+                    
+                    geminiResult.innerHTML = `
+                        <h4 class="font-bold text-lg text-amber-800 mb-2">Gemini为您推荐：</h4>
+                        <p class="text-stone-800">${text.replace(/\n/g, '<br>')}</p>
+                    `;
+                    geminiLoading.classList.add('hidden');
+                    geminiResult.classList.remove('hidden');
+
+                } catch (error) {
+                    geminiResult.innerHTML = `<p class="text-red-600">抱歉，生成失败。请稍后再试。</p>`;
+                    console.error('Gemini API call failed:', error);
+                } finally {
+                    geminiButton.disabled = false;
+                    geminiButton.textContent = '✨ 为我们的最后一晚生成一个特别晚餐计划';
+                }
+            }
+
+            renderItinerary('day1');
+
+            const recommendationsGrid = document.getElementById('recommendations-grid');
+            const filterButtons = document.getElementById('filter-buttons');
+
+            function renderRecommendations(filter = 'all') {
+                recommendationsGrid.innerHTML = '';
+                const filteredData = (filter === 'all')
+                    ? recommendationsData
+                    : recommendationsData.filter(item => item.category === filter);
+
+                filteredData.forEach(item => {
+                    const cardHtml = `
+                        <div class="recommendation-card bg-stone-50 rounded-lg shadow-md overflow-hidden transition-transform transform hover:-translate-y-1" data-category="${item.category}">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-bold text-lg text-stone-800">${item.name}</h4>
+                                    <span class="text-sm font-semibold ${item.category === 'food' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'} px-2 py-1 rounded-full">${item.price}</span>
+                                </div>
+                                <p class="text-stone-600 text-sm">${item.desc}</p>
+                            </div>
+                        </div>
+                    `;
+                    recommendationsGrid.innerHTML += cardHtml;
+                });
+            }
+
+            filterButtons.addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-btn')) {
+                    document.querySelector('.filter-btn.bg-amber-600').classList.remove('bg-amber-600', 'text-white');
+                    e.target.classList.add('bg-amber-600', 'text-white');
+                    e.target.classList.remove('bg-gray-200', 'text-gray-700');
+                    const allOtherButtons = Array.from(filterButtons.querySelectorAll('.filter-btn'));
+                    allOtherButtons.forEach(btn => {
+                        if (btn !== e.target) {
+                            btn.classList.add('bg-gray-200', 'text-gray-700');
+                        }
+                    });
+                    renderRecommendations(e.target.dataset.filter);
+                }
+            });
+            
+            renderRecommendations('all');
+
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>
